@@ -1,0 +1,24 @@
+### Rotas Sistema de Biblioteca
+
+### De autores
+
+### Listar todos os autores 
+GET /api/autores          
+
+### Buscar autor por ID
+GET /api/autores/:id      
+
+### Criar autor
+POST /api/autore
+Content-Type: application/json
+
+{}
+
+### Atualizar autor
+PUT /api/autores/:id
+Content-Type: application/json
+
+{}
+
+### Deletar autor
+DELETE /api/autores/:id       
