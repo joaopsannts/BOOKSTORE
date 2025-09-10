@@ -1,126 +1,197 @@
-import autorModels from '../models/autorModels.js';
+import autorModel from "../models/autorModel.js";
 
-export const cadastrarAutor = async (req, res) => {
-    const { nome, biografia, data_nascimento, nacionalidade } = req.body;
+export const cadastrarAutor = async (request, response) => {
+  const { nome, biografia, data_nascimento, nacionalidade } = request.body;
 
-    if (!nome) {
-        res.status(400).json({
-            erro: 'Campo nome invalido',
-            mensagem: 'O campo nome não pode ser nulo'
-        });
-        return
+  if (!nome) {
+    response.status(400).json({
+      erro: "Campo nome incorreto",
+      mensagem: "nome não pode ser nulo",
+    });
+    return;
+  }
+  if (!biografia) {
+    response.status(400).json({
+      erro: "Campo biografia incorreto",
+      mensagem: "biografia não pode ser nulo",
+    });
+    return;
+  }
+  if (!data_nascimento) {
+    response.status(400).json({
+      erro: "Campo data_nascimento incorreto",
+      mensagem: "data_nascimento não pode ser nulo",
+    });
+    return;
+  }
+  if (!nacionalidade) {
+    response.status(400).json({
+      erro: "Campo nacionalidade incorreto",
+      mensagem: "nacionalidade não pode ser nulo",
+    });
+    return;
+  }
+
+  // 1992-02-18
+  // 25-12-2009 - 2025-30-80 Date()
+  const validaData = new Date(data_nascimento);
+  if (validaData == "Invalid Date") {
+    response.status(400).json({
+      erro: "Data inválida",
+      mensagem: "Formato da data inválido",
+    });
+    return;
+  }
+
+  const autor = {
+    nome,
+    biografia,
+    data_nascimento,
+    nacionalidade,
+  };
+
+  try {
+    const novoAutor = await autorModel.create(autor);
+    response
+      .status(201)
+      .json({ mensagem: "Autor cadastrado com sucesso", novoAutor });
+  } catch (error) {
+    console.log(error);
+    response
+      .status(500)
+      .json({ mensagem: "Erro interno do servidor ao cadastrar autor" });
+  }
+};
+
+//:3333/autores?page=1&limit=3
+// offset=3 -> 1|2|3|4|5|6|7|8|9|
+///            0|1|2|3|4|5|6|7|8|
+export const listarTodosAutores = async (request, response) => {
+  const page = parseInt(request.query.page) || 1;
+  const limit = parseInt(request.query.limit) || 10;
+  const offset = (page - 1) * limit;
+
+  try {
+    const autores = await autorModel.findAndCountAll({
+      offset,
+      limit,
+    });
+    console.log("Total: ", autores.count);
+    console.log("DAdos: ", autores.rows);
+
+    const totalPaginas = Math.ceil(autores.count / limit);
+    response.status(200).json({
+      totalAutores: autores.count,
+      totalPaginas,
+      paginaAtual: page,
+      autoresPorPagina: limit,
+      autores: autores.rows,
+    });
+  } catch (error) {
+    console.log(error);
+    response
+      .status(500)
+      .json({ mensagem: "Erro interno no servidor ao listar autores" });
+  }
+};
+
+//body? params? query?
+export const listarAutor = async (request, response) => {
+  const { id } = request.params;
+
+  if (!id) {
+    response.status(400).json({
+      erro: "Parâmetro ID incorreto",
+      mensagem: "O id não pode ser nulo",
+    });
+    return;
+  }
+
+  try {
+    const autor = await autorModel.findByPk(id);
+
+    if (!autor) {
+      response.status(404).json({ mensagem: "Autor não existe!" });
+      return;
     }
-    if (!biografia) {
-        res.status(400).json({
-            erro: 'Campo biografia invalido',
-            mensagem: 'O campo biografia não pode ser nulo'
-        });
-        return
-    }
-    if (!data_nascimento) {
-        res.status(400).json({
-            erro: 'Campo data_nascimento invalido',
-            mensagem: 'O campo data_nascimento não pode ser nulo'
-        });
-        return
-    }
-    if (!nacionalidade) {
-        res.status(400).json({
-            erro: 'Campo nacionalidade invalido',
-            mensagem: 'O campo nacionalidade não pode ser nulo'
-        });
-        return
-    }
 
-    const validaData = new Date(data_nascimento);
-    if (validaData == 'Invalid Date') {
-        res.status(400).json({
-            erro: 'Campo data_nascimento invalido',
-            mensagem: 'Formato de data inválido'
-        });
-        return
-    }
+    response.status(200).json(autor);
+  } catch (error) {
+    console.log(error);
+    response.status(500).json({ mensagem: "Erro interno ao buscar autor" });
+  }
+};
 
-    const autor = {
-        nome,
-        biografia,
-        data_nascimento,
-        nacionalidade
+//1- Identificar autor para atualizar, 2- Receber os dados para atualizar
+export const atualizarAutor = async (request, response) => {
+  const id = request.params.id;
+  const { nome, biografia, data_nascimento, nacionalidade } = request.body;
+
+  if (!id) {
+    response.status(400).json({
+      erro: "Parâmetro ID incorreto",
+      mensagem: "O id não pode ser nulo",
+    });
+    return;
+  }
+
+  try {
+    const autorSelecionado = await autorModel.findOne({
+      where: { id },
+    });
+
+    if(!autorSelecionado){
+      response.status(404).json({mensagem:"Autor não encontrado"})
+      return
     }
 
-    try {
-        const novoAutor = autorModels.create(autor);
-        res.status(201).json({ mensagem: "autor criado com sucesso", novoAutor });
-    } catch (error) {
-        res.status(500).json({ mensagem: 'Erro ao cadastrar autor' });
+    if(nome !== undefined){
+      autorSelecionado.nome = nome
     }
-}
-
-export const listarTodosAutores = async (req, res) => {
-    const page = parseInt(req.query.page) || 1
-    const limit = parseInt(req.query.limit) || 10
-    const offset = (page - 1) * limit
-
-    try {
-        const autores = await autorModels.findAndCountAll({ offset, limit })
-        const totalPaginas = Math.ceil(autores.count / limit)
-        res.status(200).json({ totalAutores: autores.count, totalPaginas, paginalAtual: page, autoresPorPagina: limit, autores: autores.rows });
-    } catch (error) {
-        console.log(error)
-        res.status(500).json({ mensagem: 'Erro ao listar autores' });
-
+    if(biografia !== undefined){
+      autorSelecionado.biografia = biografia
     }
-    res.send('Listar todos os autores');
-}
-
-export const buscarAutorPorId = async (req, res) => {
-    const { id } = req.params
-
-    if (!id) {
-        res.status(400).json({ mensagem: "ID tem que ser valido" })
+    if(data_nascimento !== undefined){
+      autorSelecionado.data_nascimento = data_nascimento
+    }
+    if(nacionalidade !== undefined){
+      autorSelecionado.nacionalidade = nacionalidade
     }
 
-    try {
-        const autor = await autorModels.findByPk(id)
-        if (!autor) {
-            res.status(400).json({ mensagem: "autor não encontrado" })
-            return
-        }
-        res.status(200).json(autor)
-    } catch (error) {
-        res.status(500).json({ mensagem: 'Erro ao listar autor' })
+    await autorSelecionado.save()
+    response.status(200).json({mensagem:"Autor atualizado com sucesso!"})
+  } catch (error) {
+    console.log(error)
+    response.stataus(500).json({mensagem:"Erro interno ao atualizar autor"})
+  }
+};
+
+export const deletarAutor = async (request, response) => {
+  const id = request.params.id;
+
+  if (!id) {
+    response.status(400).json({
+      erro: "Parâmetro ID incorreto",
+      mensagem: "O id não pode ser nulo",
+    });
+    return;
+  }
+
+  try {
+    // V = 1, F = 0
+    const deletarAutor = await autorModel.destroy({
+      where: {id}
+    })
+
+    if(deletarAutor === 0){
+      response.status(404).json({mensagem:"Autor não encontrado"})
+      return
     }
-}
 
-export const atualizarAutor = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { nome, biografia, dataNascimento, nacionalidade } = req.body;
+    response.status(204).send()
 
-        const autor = await autorModels.findByPk(id);
-
-        if (!autor) {
-            return res.status(404).json({ mensagem: "Autor não encontrado!" });
-        }
-
-        await autor.update({ nome, biografia, dataNascimento, nacionalidade });
-
-        res.status(200).json(autor);
-    } catch (error) {
-        res.status(400).json({ message: 'Erro ao atualizar o autor', error: error.message });
-    }
-}
-export const deletarAutor = async (req, res) => {
-    try {
-        const { id } = req.params
-		const autor = await autorModels.findByPk(id)
-		if (autor) {
-			await autor.destroy()
-			res.status(204).send()
-		} else {
-			res.status(404).json({ message: 'autor não encontrado' })
-		}
-	} catch (error) {
-		res.status(500).json({ message: 'Erro ao deletar autor', error})
-	}
+  } catch (error) {
+    console.log(error)
+    response.status(500).json({mensagem:"Erro interno ao excluir"})
+  }
 }

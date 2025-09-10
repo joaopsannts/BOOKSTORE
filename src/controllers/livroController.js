@@ -1,93 +1,306 @@
+//importar os dois modelos selec JOINS
+import { autorModel, livroModel } from "../models/associations.js";
 
-import { response } from "express";
-import { autorModel, livroModel } from "../models/association.js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { existsSync, unlinkSync } from "node:fs";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const cadastrarLivro = async (request, response) => {
-    const {
-        titulo,
-        isbn,
-        descricao,
-        ano_publicacao,
-        genero,
-        quantidade_total,
-        quantidade_disponivel,
-        autores,
-    } = request.body;
+  const {
+    titulo,
+    isbn,
+    descricao,
+    ano_publicacao,
+    genero,
+    quantidade_total,
+    quantidade_disponivel,
+    autores,
+  } = request.body;
 
-    if(!titulo) {
-        response.status(400).json({mensagem: "O campo título não pode ser nulo"})
-        return
-    }
-    if(!isbn) {
-        response.status(400).json({mensagem: "O campo ISBN não pode ser nulo"})
-        return
-    }
-    if(!descricao) {
-        response.status(400).json({mensagem: "O campo descrição não pode ser nulo"})
-        return
-    }
-    if(!ano_publicacao) {
-        response.status(400).json({mensagem: "O campo ano_publicacao não pode ser nulo"})
-        return
-    }
-    if(!genero) {
-        response.status(400).json({mensagem: "O campo genero não pode ser nulo"})
-        return
-    }
-    if(!quantidade_total) {
-        response.status(400).json({mensagem: "O campo quantidade_total não pode ser nulo"})
-        return
-    }
-    if(!quantidade_disponivel) {
-        response.status(400).json({mensagem: "O campo quantidade_disponivel não pode ser nulo"})
-        return
-    }
+  if (!titulo) {
+    response.status(400).json({
+      erro: "Campo inválido",
+      mensagem: "Campo titulo não pode ser nulo",
+    });
+    return;
+  }
 
-    if(!Array.isArray(autores) || autores.length === 0) {
-        response.status(400).json({mensagem: "O campo autores deve ser array e possuir pelo menos um autor"});
-        return;
-    }
+  if (!isbn) {
+    response.status(400).json({
+      erro: "Campo inválido",
+      mensagem: "Campo isbn não pode ser nulo",
+    });
+    return;
+  }
 
-    try {
-        const autoresEncontrados = await autorModel.findAll({
-            where: {
-                id: autores,
-            }
-        }); 
-        console.log("Retorno do banco", autoresEncontrados.length);
-        console.log("Quantidade do request", autores.length);
+  if (!descricao) {
+    response.status(400).json({
+      erro: "Campo inválido",
+      mensagem: "Campo descrição não pode ser nulo",
+    });
+    return;
+  }
 
+  if (!ano_publicacao) {
+    response.status(400).json({
+      erro: "Campo inválido",
+      mensagem: "Campo ano_publicacao não pode ser nulo",
+    });
+    return;
+  }
+
+  if (!genero) {
+    response.status(400).json({
+      erro: "Campo inválido",
+      mensagem: "Campo genero não pode ser nulo",
+    });
+    return;
+  }
+
+  if (!quantidade_total) {
+    response.status(400).json({
+      erro: "Campo inválido",
+      mensagem: "Campo quantidade_total não pode ser nulo",
+    });
+    return;
+  }
+
+  if (!quantidade_disponivel) {
+    response.status(400).json({
+      erro: "Campo inválido",
+      mensagem: "Campo quantidade_disponivel não pode ser nulo",
+    });
+    return;
+  }
+
+  if (!Array.isArray(autores) || autores.length === 0) {
+    response.status(400).json({
+      erro: "Campo inválido",
+      mensagem:
+        "Campo autores não pode ser nulo e deve conter pelo menos 1 autor",
+    });
+    return;
+  }
+  console.log("autores  ===> ", autores);
+  try {
+    //encontrar os autores na tabela autor pelo array de ID recebidos
+    const autoresEncontrados = await autorModel.findAll({
+      where: {
+        id: autores,
+      },
+    });
+    console.log(autoresEncontrados);
+    //validar se encontror autores
     if (autoresEncontrados.length !== autores.length) {
-        response.status(404).json({
-            mensagem: "Um ou mais IDs de autores são inválidos ou não existem",
-        });
-        return;
+      response.status(404).json({
+        erro: "Id inválido",
+        mensagem: "Um ou mais ID de autores são inválidos ou não existe",
+      });
+      return;
     }
 
+    //inserir autores na tabela de livros
     const livro = await livroModel.create({
-        titulo,
-        isbn,
-        descricao,
-        ano_publicacao,
-        genero,
-        quantidade_total,
-        quantidade_disponivel
+      titulo,
+      isbn,
+      descricao,
+      ano_publicacao,
+      genero,
+      quantidade_total,
+      quantidade_disponivel,
     });
     await livro.addAutores(autores);
+    // response.status(201).json({mensagem: "Livro cadastrado"})
 
-    const livroComAutor = await livroModel.findByPk(livro.id, {
-        attributes: { exclude: ["created_at", "update_at"]},
-        include: {
-            model: autorModel,
-            attributes: {exclude: ["created_at", 'update_at']},
-            through: {attributes: []}
-        }
-        
-    } );
+    //livro com autores
+    const livrosComAutores = await livroModel.findByPk(livro.id, {
+      attributes: { exclude: ["created_at", "updated_at"] },
+      include: {
+        model: autorModel,
+        attributes: { exclude: ["created_at", "updated_at"] },
+        through: { attributes: [] },
+      },
+    });
+    response
+      .status(201)
+      .json({ mensagem: "Livro cadastrado", livrosComAutores });
+  } catch (error) {
+    console.log(error);
+    response.status(500).json({ mensagem: "Erro interno ao cadastrar livro" });
+  }
+};
 
-    response.status(200).json({ mensagem: "Livro cadastrado", livroComAutor});
+// offset pagination / cursor pagination
+export const listarTodosLivros = async (request, response) => {
+  const page = parseInt(request.query.page) || 1;
+  const limit = parseInt(request.query.limit) || 10;
 
-    } catch {error}
+  const offset = (page - 1) * limit;
+  // X =  (3 - 1) * 10 = 20
+  try {
+    const livros = await livroModel.findAndCountAll({
+      include: {
+        model: autorModel,
+        through: { attributes: [] },
+      },
+      offset,
+      limit,
+    });
+    console.log(livros.count);
+    console.log(livros.rows);
 
-}
+    const livrosFormatados = livros.rows.map((livro) => {
+      return {
+        id: livro.id,
+        titulo: livro.titulo,
+        isbn: livro.isbn,
+        descricao: livro.descricao,
+        ano_publicacao: livro.ano_publicacao,
+        genero: livro.genero,
+        quantidade_total: livro.quantidade_total,
+        quantidade_disponivel: livro.quantidade_disponivel,
+        imagem_capa: livro.imagem_capa,
+        imagem_url: livro.imagem_url,
+        autores: livro.autores.map((autor) => ({
+          id: autor.id,
+          nome: autor.nome,
+        })),
+      };
+    });
+
+    const totalDePaginas = Math.ceil(livros.count / limit);
+    //                      (25 / 10) = 2,5
+    response.status(200).json({
+      totalLivros: livros.count,
+      totalPaginas: totalDePaginas,
+      paginalAtual: page,
+      livrosPorPagina: limit,
+      livros: livrosFormatados,
+    });
+  } catch (error) {
+    console.log(error);
+    response.status(500).json({ mensagem: "Erro ao buscar livros" });
+  }
+};
+
+export const buscarLivro = async (request, response) => {};
+
+export const atualizarLivro = async (request, response) => {};
+
+export const deletarLivro = async (request, response) => {};
+
+//CONTROLADORES DAS ROTAS DE IMAGENS
+export const cadastrarCapaLivro = async (request, response) => {
+  const { id } = request.params;
+  const { filename, path } = request.file;
+
+  if (!id) {
+    response.status(400).json({ mensagem: "O Id é obrigatório" });
+    return;
+  }
+
+  try {
+    const livro = await livroModel.findByPk(id);
+
+    if (!livro) {
+      response.status(404).json({ mensagem: "Livro não existe" });
+      return;
+    }
+
+    // Validação para se existir uma capa cadastrada, durante o cadastro da nova excluir a antiga
+      const caminhoAntigo = path.join(__dirname, "../../public/livros", livro.imagem_capa);
+      if(localizarDiretorio){
+        unlinkSync(caminhoAntigo)
+      }
+    
+
+    livro.imagem_capa = filename;
+    livro.imagem_url = path;
+
+    await livro.save();
+
+    response.status(200).json({ mensagem: "Capa cadastrada", livro });
+  } catch (error) {
+    console.log(error);
+    response.status(500).json({ mensagem: "Erro interno ao cadastrar capa" });
+  }
+};
+
+export const buscarImagemCapa = async (request, response) => {
+  const { filename } = request.params;
+
+  if (!filename) {
+    response.status(400).json({ mensagem: "parâmetro filename é obrigatório" });
+    return;
+  }
+
+  try {
+    const livro = await livroModel.findOne({
+      where: {
+        imagem_capa: filename,
+      },
+    });
+
+    if (!livro) {
+      response.status(404).json({ mensagem: "Livro não encontrado" });
+      return;
+    }
+
+    const caminhoImagem = path.join(__dirname, "../../public/livros", filename);
+
+    //validação
+
+    response.status(200).sendFile(caminhoImagem);
+  } catch (error) {}
+};
+
+export const deletarImagemCapa = async (request, response) => {
+  const { id } = request.params;
+
+  //validar a informação
+  if (!id) {
+    response.status(400).json({ mensagem: "O ID é obrigatório" });
+    return;
+  }
+
+  try {
+    const livro = await livroModel.findByPk(id);
+
+    if (!livro) {
+      response.status(404).json({ mensagem: "Livro não encontrado" });
+      return;
+    }
+
+    if (!livro.imagem_capa === "filename") {
+      response.status(400).json({ mensagem: "Esse livro não possui capa" });
+      return;
+    }
+
+    const caminhoDaImagemNaPastaPublic = path.join(
+      __dirname,
+      "../../public/livros",
+      livro.imagem_capa
+    );
+
+    if (existsSync(caminhoDaImagemNaPastaPublic)) {
+      unlinkSync(caminhoDaImagemNaPastaPublic);
+    }
+
+    if (!existsSync(caminhoDaImagemNaPastaPublic)) {
+      response.status(400).json({mensagem: "Esse livro não possui capa para apagar!"})
+      return;
+    }
+
+    livro.imagem_capa = "filename";
+    livro.imagem_url = "caminhoDaImagem";
+    await livro.save()
+
+    response.status(200).json({mensagem:"Cada do livro removida"})
+
+  } catch (error) {
+    
+  }
+};

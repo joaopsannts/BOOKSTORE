@@ -1,18 +1,10 @@
-### Visão Geral do Projeto
-
-API RESTful para sistema de biblioteca com funcionalidades de gerenciamento de livros, autores, usuários, empréstimos e interações sociais.
-
 ## Sprint 1 - Módulo Autor
-
 ### Funcionalidades
-
-[ ] Cadastro de autores
-[ ] Listagem de autores (com paginação)
-[ ] Busca por autor específico
-[ ] Atualização de dados do autor
-[ ] Remoção de autor
-
-## Estrutura de dados
+[x] Cadastro de autores
+[x] Listagem de autores (com paginação)
+[x] Busca por autor específico
+[x] Atualização de dados do autor
+[x] Remoção de autor
 {
   "id": "string/number",
   "nome": "string",
@@ -23,3 +15,6 @@ API RESTful para sistema de biblioteca com funcionalidades de gerenciamento de l
   "updatedAt": "datetime"
 }
 
+1 - Não mostrar mensagem de sucesso se tentar remover a capa de um livro que não tem capa - OK
+2 - Se um livro já tem capa, quando casdastrar uma nova capa para o mesmo livro sistema deve remover a capa antiga - OK
+3 -
